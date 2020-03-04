@@ -9,8 +9,8 @@ def cut_audio_clip(input_path, start, end, output_path, Fs):
     audio = wave.read(input_path)
     audio = np.array(audio[1], dtype=float)/(65536/2)
     clip_audio = audio[start:end][:,0]
-    n = []
-    #print(clip_audio)
+    # n = []
+    # print(clip_audio)
     # for i in range(len(audio)):
     #     n.append(i)
     # plt.plot(n, audio)
