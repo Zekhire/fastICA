@@ -155,6 +155,47 @@ def determine_w(z, iterations, eps, printing=True):
     return w
 
 
+def determine_w_n3(z, iterations, eps, printing=True):
+    B = np.transpose(np.zeros(z.shape[0]))
+    B_list = []
+    for k in range(len(z)):
+        w_old = w_init(z, printing=printing)
+        for i in range(iterations):
+            if printing:
+                print("iteration: ", k, i)
+            
+            temp = z *(np.dot(np.transpose(w_old), z)**3)
+            averages = []
+            for j in range(len(temp)):
+                averages.append(np.average(temp[j]))
+            averages = np.array(averages)
+            w = averages - 3*w_old
+
+            if k>0:
+                print("1. ", B)
+                print("2. ", np.transpose(B))
+                print("3. ", np.dot(B, np.transpose(B)))
+                print("4. ", np.dot(np.dot(B, np.transpose(B)), w))
+
+                w = w - np.dot(np.dot(B, np.transpose(B)), w)
+            # print(w)
+            w *= 1/np.linalg.norm(w)
+            w_t = np.transpose(w)
+            if abs(1-np.dot(w_t, w_old)) < eps:
+                if printing:
+                    print("multiplication of w_t, w_old:   ", np.dot(w_t, w_old))
+                    print()
+                break
+            w_old = w
+        print(w)
+        B_list.append(w)
+        B = np.transpose(np.array(B_list))
+        print("B: ", B)
+        # B.append(w)
+        # B = np.array(B)
+    return B
+
+
 
 def determine_v(w, printing=True):
     def return_v(v, w_t):
@@ -163,7 +204,7 @@ def determine_v(w, printing=True):
         return output
 
     w_t = np.transpose(w)
-    v_init = np.array([-5, 10])
+    v_init = np.random.random_integers(1,5,(w.shape[0]))
     v = scipy.optimize.fmin(return_v, v_init, args=(w_t,), disp=False)
     v_t = np.transpose(v)
     if printing:
@@ -174,12 +215,15 @@ def determine_v(w, printing=True):
         print()
     return v
 
-
 def splitting(z, w, v):
     w_t = np.transpose(w)
     v_t = np.transpose(v)
-    A_inv = np.array([w_t, v_t])
+    A_inv = np.transpose(np.array([w_t, v_t]))
     x_e = np.dot(A_inv, z)
+    return x_e
+
+def splitting_n3(z, B):
+    x_e = np.dot(B, z)
     return x_e
 
 def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True):
@@ -187,12 +231,19 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
     y, _  = centering(y, printing=printing)
     print("2. whitening")
     z     = whitening(y, printing=printing, show=show, save=save)
-    print("3. determining w vector")
-    w = determine_w(z, iterations, eps, printing)
-    print("4. determining v vector")
-    v = determine_v(w, printing=printing)
-    print("5. splitting")
-    x_e = splitting(z, w, v)
+
+    if len(y) == 2:
+        print("3. determining w vector")
+        w = determine_w(z, iterations, eps, printing)
+        print("4. determining v vector")
+        v = determine_v(w, printing=printing)
+        print("5. splitting")
+        x_e = splitting(z, w, v)
+    else:
+        print("3. determining w vector")
+        B = determine_w_n3(z, iterations, eps, printing=True)
+        print("4. splitting")
+        x_e = splitting_n3(z, B)
     return x_e
 
 
@@ -200,16 +251,15 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
 if __name__ == "__main__":
     printing = False
     show = False
-    save = True
+    save = False
 
-    input_paths = ["audio2_clip.wav", "audio3_clip.wav"]
-    mixed_paths = ["mixed2.wav", "mixed3.wav"]
-    output_paths = ["audio2_estimated.wav", "audio3_estimated.wav"]
+    input_paths  = ["audio1_clip.wav", "audio2_clip.wav", "audio3_clip.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
+    output_paths = ["audio1_estimated.wav", "audio2_estimated.wav", "audio3_estimated.wav"]
 
     x, Fs = load_samples(input_paths)
     y = mixing(x, printing=printing, show=show, save=save)
     save_audios(mixed_paths, y, Fs)
-
     
     y, Fs = load_samples(mixed_paths)
     x_e = fastICA(y, printing=printing, show=show, save=save)
