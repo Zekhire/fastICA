@@ -1,30 +1,51 @@
 import scipy.io.wavfile as wave
 import scipy.optimize
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-
-def draw_distribution(x, points=-1, plotname="test.jpg", printing=True, show=True, save=True):
-    fig = plt.figure()
-    plt.plot(x[0][:points], x[1][:points], "bo")
-    plt.plot([-100000, 100000],[0,0], "k")
-    plt.plot([0,0],[-100000, 100000], "k")
-    plt.plot(0,0, "ko")
-    plt.grid()
-    plt.xlim([min(x[0][:points])*1.2, max(x[0][:points])*1.2])
-    plt.ylim([min(x[1][:points])*1.2, max(x[1][:points])*1.2])
-    plt.xlabel("audio1")
-    plt.ylabel("audio2")
-    if show:
-        plt.show()
-    if save:
-        fig.savefig(plotname, dpi=fig.dpi)
-        
 
 def load_audios(input_path):
     audio = wave.read(input_path)
     samples = np.array(audio[1], dtype=float)
     Fs = audio[0]
     return samples, Fs
+
+
+def save_audios(output_paths, z, Fs):
+    for i in range(len(output_paths)):
+        # print("MAX:", max(z[i]))
+        wave.write(output_paths[i], Fs, z[i])
+
+
+def draw_distribution(x, points=-1, plotname="test.jpg", printing=True, show=True, save=True):
+    # if len(x) == 2:
+        fig = plt.figure()
+        plt.plot(x[0][:points], x[1][:points], "bo")
+        plt.plot([-100000, 100000],[0,0], "k")
+        plt.plot([0,0],[-100000, 100000], "k")
+        plt.plot(0,0, "ko")
+        plt.grid()
+        plt.xlim([min(x[0][:points])*1.2, max(x[0][:points])*1.2])
+        plt.ylim([min(x[1][:points])*1.2, max(x[1][:points])*1.2])
+        plt.xlabel("audio1")
+        plt.ylabel("audio2")
+        if show:
+            plt.show()
+        if save:
+            fig.savefig(plotname, dpi=fig.dpi)
+    # else:
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.plot(x[0][:2000], x[1][:2000], x[2][:2000], 'b')
+        # ax.plot([-100000, 100000],[0,0],[0,0], "k")
+        # ax.plot([0,0],[-100000, 100000],[0,0], "k")
+        # ax.plot([0,0],[0,0], [-100000, 100000], "k")
+        # ax.plot([0],[0],[0], "ko")
+        # ax.set_xlim([min(x[0][:points])*1.2, max(x[0][:points])*1.2])
+        # ax.set_ylim([min(x[1][:points])*1.2, max(x[1][:points])*1.2])
+        # ax.set_zlim([min(x[2][:points])*1.2, max(x[2][:points])*1.2])
+        # plt.show()
+
 
 
 def load_samples(input_paths):
@@ -37,11 +58,7 @@ def load_samples(input_paths):
     x = np.array(x)
     return x, Fs
 
-
-def save_audios(output_paths, z, Fs):
-    for i in range(len(output_paths)):
-        # print("MAX:", max(z[i]))
-        wave.write(output_paths[i], Fs, z[i])
+        
 
 
 def mixing(x, printing=True, show=True, save=True):
@@ -61,7 +78,9 @@ def mixing(x, printing=True, show=True, save=True):
         print(np.linalg.inv(A))
         print()
 
+    # Mixing
     y = np.dot(A, x)
+
     if show or save:
         draw_distribution(y, plotname="distribution_mixed.jpg", printing=printing, show=show, save=save)
     return y
@@ -155,12 +174,12 @@ def determine_w(z, iterations, eps, printing=True):
     return w
 
 
-def determine_w_n3(z, iterations, eps, printing=True):
+def determine_B(z, iterations, eps, printing=True):
     B = np.transpose(np.zeros(z.shape[0]))
     B_list = []
-    for k in range(len(z)):
+    for k in range(len(z)):                                 # for each signal
         w_old = w_init(z, printing=printing)
-        for i in range(iterations):
+        for i in range(iterations):                         # for each iteration
             if printing:
                 print("iteration: ", k, i)
             
@@ -172,13 +191,7 @@ def determine_w_n3(z, iterations, eps, printing=True):
             w = averages - 3*w_old
 
             if k>0:
-                print("1. ", B)
-                print("2. ", np.transpose(B))
-                print("3. ", np.dot(B, np.transpose(B)))
-                print("4. ", np.dot(np.dot(B, np.transpose(B)), w))
-
                 w = w - np.dot(np.dot(B, np.transpose(B)), w)
-            # print(w)
             w *= 1/np.linalg.norm(w)
             w_t = np.transpose(w)
             if abs(1-np.dot(w_t, w_old)) < eps:
@@ -187,25 +200,21 @@ def determine_w_n3(z, iterations, eps, printing=True):
                     print()
                 break
             w_old = w
-        print(w)
         B_list.append(w)
         B = np.transpose(np.array(B_list))
-        print("B: ", B)
-        # B.append(w)
-        # B = np.array(B)
     return B
 
 
 
 def determine_v(w, printing=True):
-    def return_v(v, w_t):
+    def find_v(v, w_t):
         output = abs(np.dot(w_t, v))*10000
         output += abs(np.linalg.norm(v)-1)*1000
         return output
 
     w_t = np.transpose(w)
     v_init = np.random.random_integers(1,5,(w.shape[0]))
-    v = scipy.optimize.fmin(return_v, v_init, args=(w_t,), disp=False)
+    v = scipy.optimize.fmin(find_v, v_init, args=(w_t,), disp=False)
     v_t = np.transpose(v)
     if printing:
         print("multiplication of w_t and v_t:  ", np.dot(w_t, v))
@@ -215,6 +224,7 @@ def determine_v(w, printing=True):
         print()
     return v
 
+
 def splitting(z, w, v):
     w_t = np.transpose(w)
     v_t = np.transpose(v)
@@ -222,9 +232,11 @@ def splitting(z, w, v):
     x_e = np.dot(A_inv, z)
     return x_e
 
+
 def splitting_n3(z, B):
     x_e = np.dot(B, z)
     return x_e
+
 
 def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True):
     print("1. centering")
@@ -240,8 +252,8 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
         print("5. splitting")
         x_e = splitting(z, w, v)
     else:
-        print("3. determining w vector")
-        B = determine_w_n3(z, iterations, eps, printing=True)
+        print("3. determining B vector")
+        B = determine_B(z, iterations, eps, printing=True)
         print("4. splitting")
         x_e = splitting_n3(z, B)
     return x_e
@@ -249,8 +261,12 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
 
 
 if __name__ == "__main__":
+    A = np.matrix([1,2,3])
+    A = np.transpose(A)
+    B = A*np.transpose(A)
+    exit()
     printing = False
-    show = False
+    show = True
     save = False
 
     input_paths  = ["audio1_clip.wav", "audio2_clip.wav", "audio3_clip.wav"]
