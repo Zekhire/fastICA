@@ -261,10 +261,6 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
 
 
 if __name__ == "__main__":
-    A = np.matrix([1,2,3])
-    A = np.transpose(A)
-    B = A*np.transpose(A)
-    exit()
     printing = False
     show = True
     save = False
