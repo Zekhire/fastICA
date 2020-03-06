@@ -129,32 +129,9 @@ def w_init(z, printing=True):
     return w
 
 
-def return_v(v, w_t):
-    output = abs(np.dot(w_t, v))*10000
-    output += abs(np.linalg.norm(v)-1)*1000
-    return output
-
-def determine_v(w_t, printing=True):
-    v_init = np.array([-5, 10])
-    v = scipy.optimize.fmin(return_v, v_init, args=(w_t,), disp=False)
-    v_t = np.transpose(v)
-    if printing:
-        print("multiplication of w_t and v_t:  ", np.dot(w_t, v))
-        print("norm of v:\t\t\t", np.linalg.norm(v))
-        print("matrix with w_t and v_t:")
-        print(np.array([w_t, v_t]))
-        print()
-    return v
-
-
-def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True):
-    print("centering")
-    y, _  = centering(y, printing=printing)
-    print("whitening")
-    z     = whitening(y, printing=printing, show=show, save=save)
-    print("determining w vector")
+def determine_w(z, iterations, eps, printing=True):
     w_old = w_init(z, printing=printing)
-    # ITERATIONS :>
+
     for i in range(iterations):
         if printing:
             print("iteration:", i)
@@ -175,26 +152,65 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
             break
         w_old = w
 
-    v = determine_v(w_t, printing=printing)
-    v_t = np.transpose(v)
+    return w
 
+
+
+def determine_v(w, printing=True):
+    def return_v(v, w_t):
+        output = abs(np.dot(w_t, v))*10000
+        output += abs(np.linalg.norm(v)-1)*1000
+        return output
+
+    w_t = np.transpose(w)
+    v_init = np.array([-5, 10])
+    v = scipy.optimize.fmin(return_v, v_init, args=(w_t,), disp=False)
+    v_t = np.transpose(v)
+    if printing:
+        print("multiplication of w_t and v_t:  ", np.dot(w_t, v))
+        print("norm of v:\t\t\t", np.linalg.norm(v))
+        print("matrix with w_t and v_t:")
+        print(np.array([w_t, v_t]))
+        print()
+    return v
+
+
+def splitting(z, w, v):
+    w_t = np.transpose(w)
+    v_t = np.transpose(v)
     A_inv = np.array([w_t, v_t])
     x_e = np.dot(A_inv, z)
+    return x_e
 
+def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True):
+    print("1. centering")
+    y, _  = centering(y, printing=printing)
+    print("2. whitening")
+    z     = whitening(y, printing=printing, show=show, save=save)
+    print("3. determining w vector")
+    w = determine_w(z, iterations, eps, printing)
+    print("4. determining v vector")
+    v = determine_v(w, printing=printing)
+    print("5. splitting")
+    x_e = splitting(z, w, v)
     return x_e
 
 
 
 if __name__ == "__main__":
+    printing = False
+    show = False
+    save = True
+
     input_paths = ["audio2_clip.wav", "audio3_clip.wav"]
     mixed_paths = ["mixed2.wav", "mixed3.wav"]
     output_paths = ["audio2_estimated.wav", "audio3_estimated.wav"]
 
     x, Fs = load_samples(input_paths)
-    y = mixing(x, printing=True, show=False, save=True)
+    y = mixing(x, printing=printing, show=show, save=save)
     save_audios(mixed_paths, y, Fs)
 
     
     y, Fs = load_samples(mixed_paths)
-    x_e = fastICA(y, printing=True, show=False, save=True)
+    x_e = fastICA(y, printing=printing, show=show, save=save)
     save_audios(output_paths, x_e, Fs)
