@@ -12,9 +12,10 @@ def load_audios(input_path):
 
 
 def save_audios(output_paths, z, Fs):
+    
     for i in range(len(output_paths)):
         # print("MAX:", max(z[i]))
-        wave.write(output_paths[i], Fs, z[i])
+        wave.write(output_paths[i], Fs, np.array(z)[i])
 
 
 def draw_distribution(x, points=-1, plotname="test.jpg", printing=True, show=True, save=True):
@@ -55,7 +56,7 @@ def load_samples(input_paths):
         audio, Fs = load_audios(input_path)
         # print("MAX:", max(audio))
         x.append(audio)
-    x = np.array(x)
+    x = np.matrix(x)
     return x, Fs
 
         
@@ -67,7 +68,7 @@ def mixing(x, printing=True, show=True, save=True):
         draw_distribution(x, plotname="distribution_sources.jpg", printing=printing, show=show, save=save)
     
     # A = np.random.random_integers(1,5,(audios_number, audios_number))
-    A = np.random.random_sample((audios_number, audios_number))
+    A = np.matrix(np.random.random_sample((audios_number, audios_number)))
     for i in range(len(A)):
         A[i] *= 1/np.linalg.norm(A[i])
         
@@ -79,7 +80,7 @@ def mixing(x, printing=True, show=True, save=True):
         print()
 
     # Mixing
-    y = np.dot(A, x)
+    y = A*x
 
     if show or save:
         draw_distribution(y, plotname="distribution_mixed.jpg", printing=printing, show=show, save=save)
@@ -99,10 +100,11 @@ def centering(y, printing=True):
         mean = np.mean(y[i])
         means.append(mean)
         new_y[i] -= mean
-    means = np.array(means)
+    means = np.matrix(means)
 
     if printing:
-        print("mean after centering:  ", np.mean(new_y[0]), np.mean(new_y[1]))
+        for i in range(len(y)):
+            print("mean of signal "+str(i)+" after centering:  ", np.mean(new_y[i]))
         print()
 
     return new_y, means
@@ -113,18 +115,22 @@ def whitening(y, printing=True, show=True, save=True):
     #covariance=np.cov(np.dot(y, y_t))
     covariance=np.cov(y)
     D, V = np.linalg.eigh(covariance)
-    D = np.diag(D)
+    D = np.matrix(np.diag(D))
+    V = np.matrix(V)
     V_t = np.transpose(V)
 
     if printing:
         print("covariance matrix: ")
         print(covariance)
         print("covariance matrix V*D*V_t: ")
-        print(np.dot(V, np.dot(D, V_t)))
-        
-    D[D!=0]=D[D!=0]**(-1/2)
-    A_w = np.dot(V, np.dot(D, V_t))
-    z = np.dot(A_w, y)
+        print(V*D*V_t)
+    
+
+    D = np.matrix(np.diag(np.power(np.array(D.diagonal()),(-1/2))[0]))
+    print(D)
+    #D[D!=0]=D[D!=0]**(-1/2)
+    A_w = V*D*V_t
+    z = A_w*y
 
     if printing:
         print("covariance matrix after whitening:\n", np.cov(z))
@@ -139,7 +145,7 @@ def whitening(y, printing=True, show=True, save=True):
 
 
 def w_init(z, printing=True):
-    w = np.random.random_sample((z.shape[0]))
+    w = np.matrix(np.random.random_sample((z.shape[0])))
     w /= np.linalg.norm(w)
     w = np.transpose(w)
     if printing:
@@ -155,18 +161,19 @@ def determine_w(z, iterations, eps, printing=True):
         if printing:
             print("iteration:", i)
         
-        temp = z *(np.dot(np.transpose(w_old), z)**3)
+        temp = np.multiply(z,np.power(np.transpose(w_old)*z,3))
         averages = []
         for j in range(len(temp)):
             averages.append(np.average(temp[j]))
-        averages = np.array(averages)
+        averages = np.transpose(np.matrix(averages))
         w = averages - 3*w_old
 
         w *= 1/np.linalg.norm(w)
         w_t = np.transpose(w)
-        if abs(1-np.dot(w_t, w_old)) < eps:
+
+        if abs(1- (w_t*w_old)) < eps:
             if printing:
-                print("multiplication of w_t, w_old:   ", np.dot(w_t, w_old))
+                print("multiplication of w_t, w_old:   ", w_t*w_old)
                 print()
             break
         w_old = w
@@ -174,53 +181,25 @@ def determine_w(z, iterations, eps, printing=True):
     return w
 
 
-def determine_B(z, iterations, eps, printing=True):
-    B = np.transpose(np.zeros(z.shape[0]))
-    B_list = []
-    for k in range(len(z)):                                 # for each signal
-        w_old = w_init(z, printing=printing)
-        for i in range(iterations):                         # for each iteration
-            if printing:
-                print("iteration: ", k, i)
-            
-            temp = z *(np.dot(np.transpose(w_old), z)**3)
-            averages = []
-            for j in range(len(temp)):
-                averages.append(np.average(temp[j]))
-            averages = np.array(averages)
-            w = averages - 3*w_old
-
-            if k>0:
-                w = w - np.dot(np.dot(B, np.transpose(B)), w)
-            w *= 1/np.linalg.norm(w)
-            w_t = np.transpose(w)
-            if abs(1-np.dot(w_t, w_old)) < eps:
-                if printing:
-                    print("multiplication of w_t, w_old:   ", np.dot(w_t, w_old))
-                    print()
-                break
-            w_old = w
-        B_list.append(w)
-        B = np.transpose(np.array(B_list))
-    return B
-
-
 
 def determine_v(w, printing=True):
     def find_v(v, w_t):
-        output = abs(np.dot(w_t, v))*10000
+        v=np.transpose(np.matrix(v))
+        output = abs(w_t*v)*10000
         output += abs(np.linalg.norm(v)-1)*1000
         return output
 
     w_t = np.transpose(w)
-    v_init = np.random.random_integers(1,5,(w.shape[0]))
+    v_init = np.transpose(np.matrix(np.random.random_integers(1,5,(w.shape[0]))))
+
     v = scipy.optimize.fmin(find_v, v_init, args=(w_t,), disp=False)
+    v = np.transpose(np.matrix(v))
     v_t = np.transpose(v)
     if printing:
-        print("multiplication of w_t and v_t:  ", np.dot(w_t, v))
+        print("multiplication of w_t and v_t:  ", w_t*v)
         print("norm of v:\t\t\t", np.linalg.norm(v))
         print("matrix with w_t and v_t:")
-        print(np.array([w_t, v_t]))
+        print(np.concatenate((w_t, v_t)))
         print()
     return v
 
@@ -228,13 +207,48 @@ def determine_v(w, printing=True):
 def splitting(z, w, v):
     w_t = np.transpose(w)
     v_t = np.transpose(v)
-    A_inv = np.transpose(np.array([w_t, v_t]))
-    x_e = np.dot(A_inv, z)
+    A_inv = np.concatenate((w_t, v_t))
+    x_e = A_inv*z
     return x_e
 
 
+def determine_B(z, iterations, eps, printing=True):
+    B = np.transpose(np.matrix(np.zeros((z.shape[0],z.shape[0]))))
+
+    for k in range(len(z)):                                 # for each signal
+        w_old = w_init(z, printing=printing)
+        for i in range(iterations):                         # for each iteration
+            if printing:
+                print("iteration: ", k, i)
+            
+            temp = np.multiply(z,np.power(np.transpose(w_old)*z,3))
+            averages = []
+            for j in range(len(temp)):
+                averages.append(np.average(temp[j]))
+            averages = np.transpose(np.matrix(averages))
+            w = averages - 3*w_old
+
+            if k>0:
+                w = w - ((B*np.transpose(B))*w)
+            w *= 1/np.linalg.norm(w)
+            w_t = np.transpose(w)
+            if abs(1- (w_t*w_old)) < eps:
+                if printing:
+                    print("multiplication of w_t, w_old:   ", w_t*w_old)
+                    print()
+                break
+            w_old = w
+        B[:,k] = w
+        print(B)
+        # print(np.transpose(B))
+        # print((B*(np.transpose(B))*w))
+        # input()
+
+    return B
+
+
 def splitting_n3(z, B):
-    x_e = np.dot(B, z)
+    x_e = B*z
     return x_e
 
 
@@ -261,13 +275,29 @@ def fastICA(y, iterations=25, eps=0.000001, printing=True, show=True, save=True)
 
 
 if __name__ == "__main__":
-    printing = False
-    show = True
+
+    # B = np.matrix(np.zeros((3,3)))
+    # A = np.transpose(np.matrix([[1,2,3],[2,5,6]]))
+    # # B[:,0] = A
+    # # print(B)
+    # # print(B*np.transpose(B))
+    # print(A)
+    # print(A*np.transpose(A))
+    # # B = np.matrix([1,5,7])
+    # # print(np.concatenate((A,B)))
+    # # print(type(np.concatenate((A,B))))
+    # exit()
+    printing = True
+    show = False
     save = False
+
+    input_paths  = ["audio1_clip.wav", "audio2_clip.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed2.wav"]
+    output_paths = ["estimated1.wav", "estimated2.wav"]
 
     input_paths  = ["audio1_clip.wav", "audio2_clip.wav", "audio3_clip.wav"]
     mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
-    output_paths = ["audio1_estimated.wav", "audio2_estimated.wav", "audio3_estimated.wav"]
+    output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav"]
 
     x, Fs = load_samples(input_paths)
     y = mixing(x, printing=printing, show=show, save=save)
