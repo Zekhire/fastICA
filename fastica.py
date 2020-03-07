@@ -68,10 +68,13 @@ def mixing(x, printing=True, show=True, save=True):
         draw_distribution(x, plotname="distribution_sources.jpg", printing=printing, show=show, save=save)
     
     # A = np.random.random_integers(1,5,(audios_number, audios_number))
-    A = np.matrix(np.random.random_sample((audios_number, audios_number)))
-    for i in range(len(A)):
-        A[i] *= 1/np.linalg.norm(A[i])
-        
+    while True:
+        A = np.matrix(np.random.random_sample((audios_number, audios_number)))
+        for i in range(len(A)):
+            A[i] *= 1/np.linalg.norm(A[i])
+        if abs(np.linalg.det(A)) > 0.001:
+            break 
+
     if printing:
         print("A:")
         print(A)
@@ -239,10 +242,13 @@ def determine_B(z, iterations, eps, printing=True):
                 break
             w_old = w
         B[:,k] = w
-        print(B)
+        # print(B)
+        # print(np.transpose(B))
+        # print(B*np.transpose(B))
         # print(np.transpose(B))
         # print((B*(np.transpose(B))*w))
         # input()
+    B = np.transpose(B) # don't know why this should be transposed (or regarding article shouldn't ...)
 
     return B
 
