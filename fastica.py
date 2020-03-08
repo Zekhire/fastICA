@@ -1,6 +1,6 @@
 import scipy.io.wavfile as wave
 import scipy.optimize
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
@@ -94,7 +94,8 @@ def mixing(x, printing=True, show=True, save=True):
 
 def centering(y, printing=True):
     if printing:
-        print("mean before centering: ", np.mean(y[0]), np.mean(y[1]))
+        for i in range(len(y)):
+            print("mean of signal "+str(i)+" before centering:  ", np.mean(y[1]))
 
     new_y = y.copy()
     means = []
@@ -114,7 +115,7 @@ def centering(y, printing=True):
 
 
 def whitening(y, printing=True, show=True, save=True):
-    y_t = np.transpose(y)
+    # y_t = np.transpose(y)
     #covariance=np.cov(np.dot(y, y_t))
     covariance=np.cov(y)
     D, V = np.linalg.eigh(covariance)
@@ -129,10 +130,8 @@ def whitening(y, printing=True, show=True, save=True):
         print(V*D*V_t)
     
 
-    D = np.matrix(np.diag(np.power(np.array(D.diagonal()),(-1/2))[0]))
-    print(D)
-    #D[D!=0]=D[D!=0]**(-1/2)
-    A_w = V*D*V_t
+    Drs = np.matrix(np.diag(np.power(np.array(D.diagonal()),(-1/2))[0]))  # xD
+    A_w = V*Drs*V_t
     z = A_w*y
 
     if printing:
@@ -219,10 +218,11 @@ def determine_B(z, iterations, eps, printing=True):
     B = np.transpose(np.matrix(np.zeros((z.shape[0],z.shape[0]))))
 
     for k in range(len(z)):                                 # for each signal
+        print("signal: ", k)
         w_old = w_init(z, printing=printing)
         for i in range(iterations):                         # for each iteration
             if printing:
-                print("iteration: ", k, i)
+                print("iteration: ", i)
             
             temp = np.multiply(z,np.power(np.transpose(w_old)*z,3))
             averages = []
@@ -304,6 +304,10 @@ if __name__ == "__main__":
     input_paths  = ["audio1_clip.wav", "audio2_clip.wav", "audio3_clip.wav"]
     mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
     output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav"]
+
+    input_paths  = ["audio1_clip.wav", "audio2_clip.wav", "audio3_clip.wav", "audio4_clip.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
+    output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
 
     x, Fs = load_samples(input_paths)
     y = mixing(x, printing=printing, show=show, save=save)
