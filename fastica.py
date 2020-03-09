@@ -20,7 +20,6 @@ def scaling_down(x):
 def save_audios(output_paths, z, Fs, scaling=True):
     
     for i in range(len(output_paths)):
-        # print("MAX:", max(z[i]))
         if scaling:
             x = scaling_down(np.array(z)[i])
         else:
@@ -78,8 +77,12 @@ def mixing(x, eps_det=0.001, printing=True, show=True, save=True):
         draw_distribution(x, plotname="distribution_sources.jpg", printing=printing, show=show, save=save)
     
     while True:
-        A = np.random.random_integers(1,5,(audios_number, audios_number))
+        # A = np.random.random_integers(1,5,(audios_number, audios_number))
+        A = np.matrix(np.random.random_sample((audios_number, audios_number)))
+        for i in range(len(A)):
+            A[i] *= 1/np.linalg.norm(A[i])
         if abs(np.linalg.det(A)) > eps_det:
+            # print(abs(np.linalg.det(A)))
             break 
 
     if printing:
@@ -102,16 +105,11 @@ def mixing(x, eps_det=0.001, printing=True, show=True, save=True):
 def centering(y, printing=True):
     if printing:
         for i in range(len(y)):
-            print("mean of signal "+str(i)+" before centering:  ", np.mean(y[i]),np.average(y[i]))
+            print("mean of signal "+str(i)+" before centering:  ", np.mean(y[i]))
 
     new_y = y.copy()
-    means = []
-
-    for i in range(len(y)):
-        mean = np.mean(y[i])
-        means.append(mean)
-        new_y[i] -= mean
-    means = np.matrix(means)
+    means =  np.matrix(np.mean(new_y, axis=1))
+    new_y -= means
 
     if printing:
         for i in range(len(y)):
@@ -168,13 +166,14 @@ def determine_w(z, iterations, eps, printing=True):
         if printing:
             print("iteration:", i)
         
-        temp = np.multiply(z,np.power(np.transpose(w_old)*z,3))
-        averages = []
-        for j in range(len(temp)):
-            averages.append(np.average(temp[j]))
-        averages = np.transpose(np.matrix(averages))
-        w = averages - 3*w_old
-
+        # print(z)
+        # print(np.transpose(w_old))
+        # print(np.transpose(w_old)*z)
+        # print(np.power(np.transpose(w_old)*z,3))
+        # print(np.multiply(z,np.power(np.transpose(w_old)*z,3)))
+        # print(np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1))
+        # input()
+        w = np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1) - 3*w_old
         w *= 1/np.linalg.norm(w)
         w_t = np.transpose(w)
 
@@ -214,7 +213,7 @@ def determine_v(w, printing=True):
 def splitting(z, w, v):
     w_t = np.transpose(w)
     v_t = np.transpose(v)
-    A_inv = np.concatenate((w_t, v_t))
+    A_inv = np.matrix(np.concatenate((w_t, v_t)))
     x_e = A_inv*z
     return x_e
 
@@ -229,18 +228,13 @@ def determine_B(z, iterations, eps, printing=True):
             if printing:
                 print("iteration: ", i)
             
-            temp = np.multiply(z,np.power(np.transpose(w_old)*z,3))
-            averages = []
-            for j in range(len(temp)):
-                averages.append(np.average(temp[j]))
-            averages = np.transpose(np.matrix(averages))
-            w = averages - 3*w_old
+            w = np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1) - 3*w_old
 
-            if k>0 and i<5:
+            if k>0:
                 w = w - ((B*np.transpose(B))*w)
             w *= 1/np.linalg.norm(w)
             w_t = np.transpose(w)
-            if abs(1- (w_t*w_old)) < eps:
+            if abs(1-w_t*w_old) < eps:
                 if printing:
                     print("multiplication of w_t, w_old:   ", w_t*w_old)
                     print()
@@ -249,7 +243,9 @@ def determine_B(z, iterations, eps, printing=True):
         B[:,k] = w
 
     B = np.transpose(B) # don't know why this should be transposed (or regarding article shouldn't ...)
-
+    if printing:
+        print("B:")
+        print(B)
     return B
 
 
@@ -258,7 +254,7 @@ def splitting_n3(z, B):
     return x_e
 
 
-def fastICA(y, iterations=25, eps=1e-15, printing=True, show=True, save=True):
+def fastICA(y, iterations=25, eps=1e-5, printing=True, show=True, save=True):
     print("1. centering")
     y, _  = centering(y, printing=printing)
     print("2. whitening")
@@ -281,7 +277,7 @@ def fastICA(y, iterations=25, eps=1e-15, printing=True, show=True, save=True):
 
 def generate_test_signals():
     from scipy import signal
-    np.random.seed(0)
+    # np.random.seed(0)
     Fs = 44100
     n_samples = Fs*60
     time = np.linspace(0, 8, n_samples)
@@ -304,7 +300,7 @@ def draw(x, plotname):
 if __name__ == "__main__":
     printing = True
     show = False
-    save = True
+    save = False
 
     input_paths  = ["clip1.wav", "clip4.wav"]
     mixed_paths  = ["mixed1.wav", "mixed4.wav"]
@@ -314,17 +310,18 @@ if __name__ == "__main__":
     # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
     # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav"]
 
-    # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
-    # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
-    # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
+    input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
+    output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
 
-    # x, Fs = load_samples(input_paths)
-    x, Fs = generate_test_signals()
+    x, Fs = load_samples(input_paths)
+    # x, Fs = generate_test_signals()
     y = mixing(x, printing=printing, show=show, save=save)
-    draw(x, "source.jpg")
+    # draw(x, "source.jpg")
+    # draw(y, "mixed.jpg")
     save_audios(mixed_paths, y, Fs)
     
     y, Fs = load_samples(mixed_paths)
     x_e = fastICA(y, printing=printing, show=show, save=save)
     save_audios(output_paths, x_e, Fs)
-    draw(x_e, "regained.jpg")
+    # draw(x_e, "regained.jpg")
