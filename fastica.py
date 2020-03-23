@@ -27,18 +27,26 @@ def save_audios(output_paths, z, Fs, scaling=True):
         wave.write(output_paths[i], Fs, x)
 
 
-def draw_distribution(x, points=-1, plotname="test.jpg", printing=True, show=True, save=True):
+def draw_distribution(x, points=-1, plotname="test.jpg", b=None, printing=True, show=True, save=True):
     # if len(x) == 2:
         fig = plt.figure()
         plt.plot(np.array(x[0])[0][:points], np.array(x[1])[0][:points], "bo")
-        plt.plot([-100000, 100000],[0,0], "k")
-        plt.plot([0,0],[-100000, 100000], "k")
+        plt.plot([-100000, 100000], [0,0], "k")
+        plt.plot([0,0], [-100000, 100000], "k")
         plt.plot(0,0, "ko")
         plt.grid()
         plt.xlim([min(np.array(x[0])[0][:points])*1.2, max(np.array(x[0])[0][:points])*1.2])
         plt.ylim([min(np.array(x[1])[0][:points])*1.2, max(np.array(x[1])[0][:points])*1.2])
         plt.xlabel("audio1")
         plt.ylabel("audio2")
+        if type(b)!= type(None):
+            b_inv = np.linalg.inv(b)
+            if printing:
+                print(b_inv)
+                print(b_inv[0,0], b_inv[1,0], b_inv[0,1], b_inv[1,1])
+            plt.plot([min(np.array(x[0])[0][:points]), 10*b_inv[0,0]+min(np.array(x[0])[0][:points])], [min(np.array(x[1])[0][:points]), 10*b_inv[1,0]+min(np.array(x[1])[0][:points])])
+            plt.plot([min(np.array(x[0])[0][:points]), 10*b_inv[0,1]+min(np.array(x[0])[0][:points])], [min(np.array(x[1])[0][:points]), 10*b_inv[1,1]+min(np.array(x[1])[0][:points])])
+
         if show:
             plt.show()
         if save:
@@ -265,6 +273,11 @@ def fastICA(y, iterations=25, eps=1e-5, printing=True, show=True, save=True):
         w = determine_w(z, iterations, eps, printing)
         print("4. determining v vector")
         v = determine_v(w, printing=printing)
+        if show or save:
+            w_t = np.transpose(w)
+            v_t = np.transpose(v)
+            A_inv = np.matrix(np.concatenate((w_t, v_t)))
+            draw_distribution(z, points=-1, plotname="v.jpg", b=A_inv, printing=printing, show=show, save=save)
         print("5. splitting")
         x_e = splitting(z, w, v)
     else:
@@ -300,19 +313,19 @@ def draw(x, plotname):
 if __name__ == "__main__":
     printing = True
     show = False
-    save = False
+    save = True
 
-    input_paths  = ["clip1.wav", "clip4.wav"]
-    mixed_paths  = ["mixed1.wav", "mixed4.wav"]
-    output_paths = ["estimated1.wav", "estimated4.wav"]
+    input_paths  = ["clip2.wav", "clip4.wav"]
+    mixed_paths  = ["mixed2.wav", "mixed4.wav"]
+    output_paths = ["estimated2.wav", "estimated4.wav"]
 
     # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav"]
     # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
     # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav"]
 
-    input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
-    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
-    output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
+    # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
+    # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
+    # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
 
     x, Fs = load_samples(input_paths)
     # x, Fs = generate_test_signals()
