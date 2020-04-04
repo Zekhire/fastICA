@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
+
 def load_audios(input_path):
     audio = wave.read(input_path)
     samples = np.array(audio[1], dtype=float)
     Fs = audio[0]
     return samples, Fs
-
 
 
 def scaling_down(x):
@@ -30,7 +30,7 @@ def save_audios(output_paths, z, Fs, scaling=True):
 def draw_distribution(x, points=-1, plotname="test.jpg", b=None, printing=True, show=True, save=True):
     # if len(x) == 2:
         fig = plt.figure()
-        plt.plot(np.array(x[0])[0][:points], np.array(x[1])[0][:points], "bo")
+        plt.plot(np.array(x[0])[0][:points], np.array(x[1])[0][:points], "bo", ms=0.25)
         plt.plot([-100000, 100000], [0,0], "k")
         plt.plot([0,0], [-100000, 100000], "k")
         plt.plot(0,0, "ko")
@@ -315,9 +315,9 @@ if __name__ == "__main__":
     show = False
     save = True
 
-    input_paths  = ["clip2.wav", "clip4.wav"]
-    mixed_paths  = ["mixed2.wav", "mixed4.wav"]
-    output_paths = ["estimated2.wav", "estimated4.wav"]
+    input_paths  = ["clip1.wav", "clip4.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed4.wav"]
+    output_paths = ["estimated1.wav", "estimated4.wav"]
 
     # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav"]
     # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
@@ -332,9 +332,9 @@ if __name__ == "__main__":
     y = mixing(x, printing=printing, show=show, save=save)
     # draw(x, "source.jpg")
     # draw(y, "mixed.jpg")
-    save_audios(mixed_paths, y, Fs)
+    save_audios(mixed_paths, y, Fs, False)
     
-    y, Fs = load_samples(mixed_paths)
+    # y, Fs = load_samples(mixed_paths)
     x_e = fastICA(y, printing=printing, show=show, save=save)
     save_audios(output_paths, x_e, Fs)
     # draw(x_e, "regained.jpg")
