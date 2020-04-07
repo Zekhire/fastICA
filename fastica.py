@@ -3,6 +3,7 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import covariance.cov as cov
 
 
 def load_audios(input_path):
@@ -13,7 +14,7 @@ def load_audios(input_path):
 
 
 def scaling_down(x):
-    x_scaled = x/max(x)
+    x_scaled = x/max(abs(x))
     return x_scaled
 
 
@@ -116,7 +117,7 @@ def centering(y, printing=True):
             print("mean of signal "+str(i)+" before centering:  ", np.mean(y[i]))
 
     new_y = y.copy()
-    means =  np.matrix(np.mean(new_y, axis=1))
+    means = np.matrix(np.mean(new_y, axis=1))
     new_y -= means
 
     if printing:
@@ -174,18 +175,11 @@ def determine_w(z, iterations, eps, printing=True):
         if printing:
             print("iteration:", i)
         
-        # print(z)
-        # print(np.transpose(w_old))
-        # print(np.transpose(w_old)*z)
-        # print(np.power(np.transpose(w_old)*z,3))
-        # print(np.multiply(z,np.power(np.transpose(w_old)*z,3)))
-        # print(np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1))
-        # input()
         w = np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1) - 3*w_old
         w *= 1/np.linalg.norm(w)
         w_t = np.transpose(w)
 
-        if abs(1- abs(w_t*w_old)) < eps:
+        if abs(1-(w_t*w_old)) < eps:
             if printing:
                 print("multiplication of w_t, w_old:   ", w_t*w_old)
                 print()
@@ -227,7 +221,7 @@ def splitting(z, w, v):
 
 
 def determine_B(z, iterations, eps, printing=True):
-    B = np.transpose(np.matrix(np.zeros((z.shape[0],z.shape[0]), np.float64)))
+    B = np.matrix(np.zeros((z.shape[0],z.shape[0]), np.float64))
 
     for k in range(len(z)):                                 # for each signal
         print("signal: ", k)
@@ -238,11 +232,11 @@ def determine_B(z, iterations, eps, printing=True):
             
             w = np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1) - 3*w_old
 
-            if k>0:
+            if k > 0:
                 w = w - ((B*np.transpose(B))*w)
             w *= 1/np.linalg.norm(w)
             w_t = np.transpose(w)
-            if abs(1-w_t*w_old) < eps:
+            if abs(1-(w_t*w_old)) < eps:
                 if printing:
                     print("multiplication of w_t, w_old:   ", w_t*w_old)
                     print()
@@ -300,6 +294,7 @@ def generate_test_signals():
     # return np.matrix([s1,s2,s3]), Fs
     return np.matrix([s1,s2]), Fs
 
+
 def draw(x, plotname):
     fig = plt.figure()
     for i in range(len(x)):
@@ -319,9 +314,9 @@ if __name__ == "__main__":
     mixed_paths  = ["mixed1.wav", "mixed4.wav"]
     output_paths = ["estimated1.wav", "estimated4.wav"]
 
-    # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav"]
-    # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav"]
-    # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav"]
+    input_paths  = ["clip1.wav", "clip2.wav", "clip4.wav"]
+    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed4.wav"]
+    output_paths = ["estimated1.wav", "estimated2.wav", "estimated4.wav"]
 
     # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
     # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
