@@ -3,7 +3,7 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import covariance.cov as cov
+from covariance import cov
 
 
 def load_audios(input_path):
@@ -19,7 +19,6 @@ def scaling_down(x):
 
 
 def save_audios(output_paths, z, Fs, scaling=True):
-    
     for i in range(len(output_paths)):
         if scaling:
             x = scaling_down(np.array(z)[i])
@@ -44,7 +43,7 @@ def draw_distribution(x, points=-1, plotname="test.jpg", b=None, printing=True, 
             b_inv = np.linalg.inv(b)
             if printing:
                 print(b_inv)
-                print(b_inv[0,0], b_inv[1,0], b_inv[0,1], b_inv[1,1])
+                # print(b_inv[0,0], b_inv[1,0], b_inv[0,1], b_inv[1,1])
             plt.plot([min(np.array(x[0])[0][:points]), 10*b_inv[0,0]+min(np.array(x[0])[0][:points])], [min(np.array(x[1])[0][:points]), 10*b_inv[1,0]+min(np.array(x[1])[0][:points])])
             plt.plot([min(np.array(x[0])[0][:points]), 10*b_inv[0,1]+min(np.array(x[0])[0][:points])], [min(np.array(x[1])[0][:points]), 10*b_inv[1,1]+min(np.array(x[1])[0][:points])])
 
@@ -80,19 +79,20 @@ def load_samples(input_paths):
         
 
 
-def mixing(x, eps_det=0.001, printing=True, show=True, save=True):
+def mixing(x, A=None, eps_det=0.001, printing=True, show=True, save=True):
     audios_number = len(x)
     if show or save:
         draw_distribution(x, plotname="distribution_sources.jpg", printing=printing, show=show, save=save)
     
-    while True:
-        # A = np.random.random_integers(1,5,(audios_number, audios_number))
-        A = np.matrix(np.random.random_sample((audios_number, audios_number)))
-        for i in range(len(A)):
-            A[i] *= 1/np.linalg.norm(A[i])
-        if abs(np.linalg.det(A)) > eps_det:
-            # print(abs(np.linalg.det(A)))
-            break 
+    if A is None:
+        while True:
+            # A = np.random.random_integers(1,5,(audios_number, audios_number))
+            A = np.matrix(np.random.random_sample((audios_number, audios_number)))
+            for i in range(len(A)):
+                A[i] *= 1/np.linalg.norm(A[i])
+            if abs(np.linalg.det(A)) > eps_det:
+                # print(abs(np.linalg.det(A)))
+                break 
 
     if printing:
         print("A:")
@@ -129,7 +129,7 @@ def centering(y, printing=True):
 
 
 def whitening(y, printing=True, show=True, save=True):
-    covariance=np.cov(y)
+    covariance=cov(y)
     D, V = np.linalg.eigh(covariance)
     D = np.matrix(np.diag(D))
     V = np.matrix(V)
@@ -147,9 +147,9 @@ def whitening(y, printing=True, show=True, save=True):
     z = A_w*y
 
     if printing:
-        print("covariance matrix after whitening:\n", np.cov(z))
+        print("covariance matrix after whitening:\n", cov(z))
         for i in range(len(z)):
-            print("covariance of signal "+str(i)+" after whitening: ", np.cov(z[i]))
+            print("covariance of signal "+str(i)+" after whitening: ", cov(z[i]))
         print()
 
     if show or save:
@@ -179,7 +179,7 @@ def determine_w(z, iterations, eps, printing=True):
         w *= 1/np.linalg.norm(w)
         w_t = np.transpose(w)
 
-        if abs(1-(w_t*w_old)) < eps:
+        if abs(1-abs(w_t*w_old)) < eps:
             if printing:
                 print("multiplication of w_t, w_old:   ", w_t*w_old)
                 print()
@@ -190,7 +190,7 @@ def determine_w(z, iterations, eps, printing=True):
 
 
 
-def determine_v(w, printing=True):
+def determine_v_old(w, printing=True):
     def find_v(v, w_t):
         v=np.transpose(np.matrix(v))
         output = abs(w_t*v)*10000
@@ -204,6 +204,8 @@ def determine_v(w, printing=True):
     v = np.transpose(np.matrix(v))
     v_t = np.transpose(v)
     if printing:
+        print("matrix v:  ")
+        print(v)
         print("multiplication of w_t and v_t:  ", w_t*v)
         print("norm of v:\t\t\t", np.linalg.norm(v))
         print("matrix with w_t and v_t:")
@@ -211,12 +213,28 @@ def determine_v(w, printing=True):
         print()
     return v
 
+def determine_v(w, printing=True):
+    v = np.transpose(np.matrix([-w.item(1), w.item(0)]))
+    v_t = np.transpose(v)
+    w_t = np.transpose(w)
+    if printing:
+        print("matrix v:  ")
+        print(v)
+        print("multiplication of w_t and v_t:  ", w_t*v)
+        print("norm of v:\t\t\t", np.linalg.norm(v))
+        print()
+    return v
 
-def splitting(z, w, v):
+
+def splitting(z, w, v, printing=True):
     w_t = np.transpose(w)
     v_t = np.transpose(v)
-    A_inv = np.matrix(np.concatenate((w_t, v_t)))
-    x_e = A_inv*z
+    wv = np.matrix(np.concatenate((w_t, v_t)))
+    if printing:
+        print("matrix with w_t and v_t:")
+        print(wv)
+        print()
+    x_e = wv*z
     return x_e
 
 
@@ -227,8 +245,7 @@ def determine_B(z, iterations, eps, printing=True):
         print("signal: ", k)
         w_old = w_init(z, printing=printing)
         for i in range(iterations):                         # for each iteration
-            if printing:
-                print("iteration: ", i)
+            print("iteration: ", i)
             
             w = np.mean(np.multiply(z,np.power(np.transpose(w_old)*z,3)), axis=1) - 3*w_old
 
@@ -236,7 +253,8 @@ def determine_B(z, iterations, eps, printing=True):
                 w = w - ((B*np.transpose(B))*w)
             w *= 1/np.linalg.norm(w)
             w_t = np.transpose(w)
-            if abs(1-(w_t*w_old)) < eps:
+
+            if abs(1-abs(w_t*w_old)) < eps: # in presentation w_t*w_old should be close to 1 but here it may be negative
                 if printing:
                     print("multiplication of w_t, w_old:   ", w_t*w_old)
                     print()
@@ -244,7 +262,6 @@ def determine_B(z, iterations, eps, printing=True):
             w_old = w
         B[:,k] = w
 
-    B = np.transpose(B) # don't know why this should be transposed (or regarding article shouldn't ...)
     if printing:
         print("B:")
         print(B)
@@ -252,16 +269,18 @@ def determine_B(z, iterations, eps, printing=True):
 
 
 def splitting_n3(z, B):
-    x_e = B*z
+    B_t = np.transpose(B)
+    x_e = B_t*z
     return x_e
 
 
-def fastICA(y, iterations=25, eps=1e-5, printing=True, show=True, save=True):
+def fastICA(y, iterations=25, eps=1e-6, printing=True, show=True, save=True):
     print("1. centering")
     y, _  = centering(y, printing=printing)
     print("2. whitening")
     z     = whitening(y, printing=printing, show=show, save=save)
-
+    output_paths = ["./separated/whited5.wav", "./separated/whited6.wav", "./separated/whited7.wav"]
+    save_audios(output_paths, z, 44100)
     if len(y) == 2:
         print("3. determining w vector")
         w = determine_w(z, iterations, eps, printing)
@@ -270,39 +289,16 @@ def fastICA(y, iterations=25, eps=1e-5, printing=True, show=True, save=True):
         if show or save:
             w_t = np.transpose(w)
             v_t = np.transpose(v)
-            A_inv = np.matrix(np.concatenate((w_t, v_t)))
-            draw_distribution(z, points=-1, plotname="v.jpg", b=A_inv, printing=printing, show=show, save=save)
+            wt = np.matrix(np.concatenate((w_t, v_t)))
+            draw_distribution(z, points=-1, plotname="v.jpg", b=wt, printing=printing, show=show, save=save)
         print("5. splitting")
-        x_e = splitting(z, w, v)
+        x_e = splitting(z, w, v, printing=printing)
     else:
         print("3. determining B vector")
-        B = determine_B(z, iterations, eps, printing=True)
+        B = determine_B(z, iterations, eps, printing=printing)
         print("4. splitting")
         x_e = splitting_n3(z, B)
     return x_e
-
-
-def generate_test_signals():
-    from scipy import signal
-    # np.random.seed(0)
-    Fs = 44100
-    n_samples = Fs*60
-    time = np.linspace(0, 8, n_samples)
-    s1 = np.sin(2 * time)
-    s2 = np.sign(np.sin(3 * time))
-    # s3 = signal.sawtooth(2 * np.pi * time)
-    # return np.matrix([s1,s2,s3]), Fs
-    return np.matrix([s1,s2]), Fs
-
-
-def draw(x, plotname):
-    fig = plt.figure()
-    for i in range(len(x)):
-        plt.plot(np.array(x[i])[0])
-    plt.grid()
-    fig.savefig(plotname, dpi=fig.dpi)   
-
-
 
 
 if __name__ == "__main__":
@@ -310,23 +306,24 @@ if __name__ == "__main__":
     show = False
     save = True
 
-    input_paths  = ["clip1.wav", "clip4.wav"]
-    mixed_paths  = ["mixed1.wav", "mixed4.wav"]
-    output_paths = ["estimated1.wav", "estimated4.wav"]
 
-    input_paths  = ["clip1.wav", "clip2.wav", "clip4.wav"]
-    mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed4.wav"]
-    output_paths = ["estimated1.wav", "estimated2.wav", "estimated4.wav"]
+    input_paths  = ["./clips/clip5.wav", "./clips/clip6.wav"]
+    mixed_paths  = ["./mixed/mixed5.wav", "./mixed/mixed6.wav"]
+    output_paths = ["./separated/separated5.wav", "./separated/separated6.wav"]
 
-    # input_paths  = ["clip1.wav", "clip2.wav", "clip3.wav", "clip4.wav"]
-    # mixed_paths  = ["mixed1.wav", "mixed2.wav", "mixed3.wav", "mixed4.wav"]
-    # output_paths = ["estimated1.wav", "estimated2.wav", "estimated3.wav", "estimated4.wav"]
+    input_paths  = ["./clips/clip5.wav", "./clips/clip6.wav", "./clips/clip7.wav"]
+    mixed_paths  = ["./mixed/mixed5.wav", "./mixed/mixed6.wav", "./mixed/mixed7.wav"]
+    output_paths = ["./separated/separated5.wav", "./separated/separated6.wav", "./separated/separated7.wav"]
+
+    # input_paths  = ["./clips/clip1.wav", "./clips/clip2.wav", "./clips/clip3.wav"]
+    # mixed_paths  = ["./mixed/mixed1.wav", "./mixed/mixed2.wav", "./mixed/mixed3.wav"]
+    # output_paths = ["./separated/separated1.wav", "./separated/separated2.wav", "./separated/separated3.wav"]
+
 
     x, Fs = load_samples(input_paths)
-    # x, Fs = generate_test_signals()
+
     y = mixing(x, printing=printing, show=show, save=save)
-    # draw(x, "source.jpg")
-    # draw(y, "mixed.jpg")
+
     save_audios(mixed_paths, y, Fs, False)
     
     # y, Fs = load_samples(mixed_paths)

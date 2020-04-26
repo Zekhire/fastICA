@@ -15,8 +15,6 @@ def cov(x):
 
 if __name__=="__main__":
     mat = np.matrix([[1,2,3], [10,21,34], [12,1,38]])
-    mat = np.array([[1,2,3], [10,21,34], [12,1,38]])
+
     print(cov(mat))
-    print(np.cov(mat))
-    mat = np.array([[1,2,3], [10,21,34], [12,1,38]])
     print(np.cov(mat))
