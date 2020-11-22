@@ -8,7 +8,7 @@ Project was created and tested with:
 
 
 #### Description
-Project used to split N mixed audio files into N separated independent audio files. This project uses FastICA algorthm (not the most accurate one).
+Project used to split N mixed audio files into N separated independent audio files. This project uses FastICA algorthm (not the most accurate one). Currently this project supports only .wav audio files.
 
 
 #### Setup
