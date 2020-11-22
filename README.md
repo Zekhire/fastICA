@@ -22,8 +22,8 @@ cd ..
 cd ..
 pip install -r requirements.txt
 ```
-- Set all paths for audio files in "Editable parameters" section
-- Set all parameters in "Editable parameters" section
+- Set all paths for audio files in "Editable parameters" section in fastica.py script
+- Set all parameters in "Editable parameters" section in fastica.py script
 
 
 #### Run
