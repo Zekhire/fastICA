@@ -3,7 +3,6 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from covariance import cov
 
 
 def load_audios(input_path):
@@ -129,7 +128,7 @@ def centering(y, printing=True):
 
 
 def whitening(y, printing=True, show=True, save=True):
-    covariance=cov(y)
+    covariance=np.cov(y)
     D, V = np.linalg.eigh(covariance)
     D = np.matrix(np.diag(D))
     V = np.matrix(V)
@@ -147,9 +146,9 @@ def whitening(y, printing=True, show=True, save=True):
     z = A_w*y
 
     if printing:
-        print("covariance matrix after whitening:\n", cov(z))
+        print("covariance matrix after whitening:\n", np.cov(z))
         for i in range(len(z)):
-            print("covariance of signal "+str(i)+" after whitening: ", cov(z[i]))
+            print("covariance of signal "+str(i)+" after whitening: ", np.cov(z[i]))
         print()
 
     if show or save:
@@ -163,6 +162,8 @@ def w_init(z, printing=True):
     w /= np.linalg.norm(w)
     w = np.transpose(w)
     if printing:
+        print("initialized w:")
+        print(w)
         print("norm of initialized w:", np.linalg.norm(w))
         print()
     return w
@@ -181,6 +182,8 @@ def determine_w(z, iterations, eps, printing=True):
 
         if abs(1-abs(w_t*w_old)) < eps:
             if printing:
+                print("w:")
+                print(w)
                 print("multiplication of w_t, w_old:   ", w_t*w_old)
                 print()
             break
@@ -204,7 +207,7 @@ def determine_v_old(w, printing=True):
     v = np.transpose(np.matrix(v))
     v_t = np.transpose(v)
     if printing:
-        print("matrix v:  ")
+        print("v:")
         print(v)
         print("multiplication of w_t and v_t:  ", w_t*v)
         print("norm of v:\t\t\t", np.linalg.norm(v))
@@ -215,7 +218,6 @@ def determine_v_old(w, printing=True):
 
 def determine_v(w, printing=True):
     v = np.transpose(np.matrix([-w.item(1), w.item(0)]))
-    v_t = np.transpose(v)
     w_t = np.transpose(w)
     if printing:
         print("matrix v:  ")
@@ -270,8 +272,8 @@ def determine_B(z, iterations, eps, printing=True):
 
 def splitting_n3(z, B):
     B_t = np.transpose(B)
-    x_e = B_t*z
-    return x_e
+    x_s = B_t*z
+    return x_s
 
 
 def fastICA(y, iterations=25, eps=1e-6, printing=True, show=True, save=True):
@@ -279,8 +281,8 @@ def fastICA(y, iterations=25, eps=1e-6, printing=True, show=True, save=True):
     y, _  = centering(y, printing=printing)
     print("2. whitening")
     z     = whitening(y, printing=printing, show=show, save=save)
-    output_paths = ["./separated/whited5.wav", "./separated/whited6.wav", "./separated/whited7.wav"]
-    save_audios(output_paths, z, 44100)
+    # output_paths = ["./separated/whited5.wav", "./separated/whited6.wav", "./separated/whited7.wav"]
+    # save_audios(output_paths, z, 44100)
     if len(y) == 2:
         print("3. determining w vector")
         w = determine_w(z, iterations, eps, printing)
@@ -292,41 +294,38 @@ def fastICA(y, iterations=25, eps=1e-6, printing=True, show=True, save=True):
             wt = np.matrix(np.concatenate((w_t, v_t)))
             draw_distribution(z, points=-1, plotname="v.jpg", b=wt, printing=printing, show=show, save=save)
         print("5. splitting")
-        x_e = splitting(z, w, v, printing=printing)
+        x_s = splitting(z, w, v, printing=printing)
     else:
         print("3. determining B vector")
         B = determine_B(z, iterations, eps, printing=printing)
         print("4. splitting")
-        x_e = splitting_n3(z, B)
-    return x_e
+        x_s = splitting_n3(z, B)
+    return x_s
 
 
 if __name__ == "__main__":
+    # O=====<=>=====<=>=====<=>===== #
+    #       Editable parameters      #
+    # O=====<=>=====<=>=====<=>===== #
     printing = True
     show = False
     save = True
-
-
-    input_paths  = ["./clips/clip5.wav", "./clips/clip6.wav"]
-    mixed_paths  = ["./mixed/mixed5.wav", "./mixed/mixed6.wav"]
-    output_paths = ["./separated/separated5.wav", "./separated/separated6.wav"]
 
     input_paths  = ["./clips/clip5.wav", "./clips/clip6.wav", "./clips/clip7.wav"]
     mixed_paths  = ["./mixed/mixed5.wav", "./mixed/mixed6.wav", "./mixed/mixed7.wav"]
     output_paths = ["./separated/separated5.wav", "./separated/separated6.wav", "./separated/separated7.wav"]
 
-    # input_paths  = ["./clips/clip1.wav", "./clips/clip2.wav", "./clips/clip3.wav"]
-    # mixed_paths  = ["./mixed/mixed1.wav", "./mixed/mixed2.wav", "./mixed/mixed3.wav"]
-    # output_paths = ["./separated/separated1.wav", "./separated/separated2.wav", "./separated/separated3.wav"]
+    A = None    # If A is None, then during noise addition A will be generated randomly
+    A = np.matrix([[0.29081642, 0.62527361, 0.72419522],[ 0.88537055, 0.253161, 0.38990833], [0.12644464, 0.29337357, 0.94759891]])
+    # O=====<=>=====<=>=====<=>===== #
+    #             Program            #
+    # O=====<=>=====<=>=====<=>===== #
 
-
+    # Following block of code can be commented, in order for this script to use pure
+    # FastICA algorithm
     x, Fs = load_samples(input_paths)
-
-    y = mixing(x, printing=printing, show=show, save=save)
-
+    y = mixing(x, A=A, printing=printing, show=show, save=save)
     save_audios(mixed_paths, y, Fs, False)
     
-    # y, Fs = load_samples(mixed_paths)
-    x_e = fastICA(y, printing=printing, show=show, save=save)
-    save_audios(output_paths, x_e, Fs)
-    # draw(x_e, "regained.jpg")
+    x_s = fastICA(y, printing=printing, show=show, save=save)
+    save_audios(output_paths, x_s, Fs)
