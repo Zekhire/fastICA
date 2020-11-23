@@ -1,14 +1,11 @@
 # FastICA
+Project used to split N mixed audio files into N separated independent audio files. This project uses FastICA algorthm (not the most accurate one). Currently this project supports only .wav audio files.
 
 
 #### Technologies
 Project was created and tested with:
 * Windows 10
 * Python 3.6.5
-
-
-#### Description
-Project used to split N mixed audio files into N separated independent audio files. This project uses FastICA algorthm (not the most accurate one). Currently this project supports only .wav audio files.
 
 
 #### Setup
